@@ -117,8 +117,8 @@ founding-engineer work, and collaborations with teams building operational
 software.
 
 - GitHub: <https://github.com/Vikesh2608>
-- LinkedIn: _add link_
-- Email: _add address_
+- LinkedIn: <https://www.linkedin.com/in/vikesh-bairam-219769258/>
+- Email: vikebairam@gmail.com
 
 ## License
 

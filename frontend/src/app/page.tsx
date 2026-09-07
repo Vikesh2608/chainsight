@@ -238,9 +238,8 @@ export default function Home() {
               GitHub profile
             </a>
 
-            {/* TODO: replace the two links below with your real URLs */}
             <a
-              href="https://www.linkedin.com/in/your-handle"
+              href="https://www.linkedin.com/in/vikesh-bairam-219769258/"
               target="_blank"
               rel="noreferrer"
               className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
@@ -249,7 +248,7 @@ export default function Home() {
             </a>
 
             <a
-              href="mailto:you@example.com"
+              href="mailto:vikebairam@gmail.com"
               className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
             >
               Get in touch
