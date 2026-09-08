@@ -136,6 +136,13 @@ export default function RootLayout({
                 Production &amp; Quality
               </a>
 
+              <a
+                href="/analytics"
+                className="rounded-lg px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              >
+                Analytics
+              </a>
+
             </nav>
           </div>
         </header>

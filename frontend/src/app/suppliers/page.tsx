@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import ReportBar from "../_components/ReportBar";
+import { ParetoChart } from "../_components/charts";
+import type { ReportColumn } from "@/lib/reports";
+
 type Supplier = {
   id: string;
   name: string;
@@ -126,6 +130,20 @@ function getRiskClass(risk: "Low" | "Medium" | "High") {
   return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
 }
 
+const supplierReportColumns: ReportColumn[] = [
+  { key: "Supplier", label: "Supplier" },
+  { key: "Category", label: "Category" },
+  { key: "Products", label: "Primary products" },
+  { key: "OnTime", label: "On-time delivery %", percent: true },
+  { key: "Quality", label: "Quality score %", percent: true },
+  { key: "LeadTime", label: "Lead time (days)", numeric: true },
+  { key: "DefectRate", label: "Defect rate %", percent: true },
+  { key: "Orders", label: "Orders", numeric: true },
+  { key: "DefectExposure", label: "Defect exposure", numeric: true },
+  { key: "Score", label: "ChainSight score" },
+  { key: "Risk", label: "Risk" },
+];
+
 function getSupplierScore(supplier: Supplier) {
   const score =
     supplier.onTimeDelivery * 0.35 +
@@ -186,6 +204,31 @@ export default function SuppliersPage() {
     (a, b) => getSupplierScore(b) - getSupplierScore(a)
   )[0];
 
+  /* Report data — follows the current search / risk filter. */
+  const supplierReportRows = filteredSuppliers.map((supplier) => ({
+    Supplier: supplier.name,
+    Category: supplier.category,
+    Products: supplier.primaryProducts,
+    OnTime: supplier.onTimeDelivery,
+    Quality: supplier.qualityScore,
+    LeadTime: supplier.leadTime,
+    DefectRate: supplier.defectRate,
+    Orders: supplier.orders,
+    DefectExposure: Math.round(supplier.orders * supplier.defectRate),
+    Score: getSupplierScore(supplier),
+    Risk: getSupplierRisk(supplier),
+  }));
+
+  const supplierReportSummary = [
+    { label: "Active suppliers", value: String(totalSuppliers) },
+    {
+      label: "Avg on-time",
+      value: `${averageOnTimeDelivery.toFixed(1)}%`,
+    },
+    { label: "Avg quality", value: `${averageQuality.toFixed(1)}%` },
+    { label: "High risk", value: String(highRiskSuppliers) },
+  ];
+
   return (
     <main className="min-h-screen bg-[#020617] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
@@ -207,14 +250,30 @@ export default function SuppliersPage() {
             </p>
           </div>
 
-          <button
-            onClick={() =>
-              toast.message("Supplier onboarding workflow is coming next.")
-            }
-            className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500"
-          >
-            + Add Supplier
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <ReportBar
+              fileBase="chainsight-suppliers"
+              title="Supplier Performance Report"
+              subtitle="Delivery, quality, cost and risk by supplier"
+              columns={supplierReportColumns}
+              rows={supplierReportRows}
+              summary={supplierReportSummary}
+              pareto={{
+                title: "Defect exposure by supplier",
+                labelKey: "Supplier",
+                valueKey: "DefectExposure",
+              }}
+            />
+
+            <button
+              onClick={() =>
+                toast.message("Supplier onboarding workflow is coming next.")
+              }
+              className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500"
+            >
+              + Add Supplier
+            </button>
+          </div>
         </div>
 
         {/* KPI CARDS */}
@@ -603,6 +662,29 @@ export default function SuppliersPage() {
           )}
 
         </div>
+
+        {/* DEFECT PARETO */}
+        {filteredSuppliers.length > 0 && (
+          <div className="mt-6 rounded-xl border border-slate-800 bg-[#0b1224] p-6">
+            <h2 className="text-sm font-bold">
+              Where defects concentrate — exposure by supplier
+            </h2>
+            <p className="mt-1 text-xs text-slate-400">
+              Defect exposure weights each supplier&rsquo;s order volume by its
+              defect rate. Fixing the leftmost suppliers removes most of the
+              quality risk.
+            </p>
+            <div className="mt-4">
+              <ParetoChart
+                data={supplierReportRows.map((r) => ({
+                  label: r.Supplier,
+                  value: r.DefectExposure,
+                }))}
+                valueLabel="Defect exposure"
+              />
+            </div>
+          </div>
+        )}
 
       </div>
 

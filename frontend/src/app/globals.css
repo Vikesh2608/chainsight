@@ -24,3 +24,39 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/*
+ * Print: when a ReportBar print preview is open (#chainsight-print), hide
+ * the whole app and show only the report sheet. `.no-print` also hides
+ * on-screen controls that live inside the preview.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #chainsight-print,
+  #chainsight-print * {
+    visibility: visible;
+  }
+
+  #chainsight-print {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    background: #ffffff;
+    color: #0f172a;
+  }
+
+  #chainsight-print table {
+    page-break-inside: auto;
+  }
+
+  #chainsight-print tr {
+    page-break-inside: avoid;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

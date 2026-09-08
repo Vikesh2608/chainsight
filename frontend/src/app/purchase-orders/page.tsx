@@ -7,7 +7,9 @@ import {
   loadData,
   saveData,
 } from "@/data/storage";
-import { exportWorkbook } from "@/lib/exportData";
+import ReportBar from "../_components/ReportBar";
+import { ParetoChart } from "../_components/charts";
+import type { ReportColumn } from "@/lib/reports";
 
 import type {
   PurchaseOrder,
@@ -64,6 +66,21 @@ function statusClasses(status: POStatus) {
       return "bg-slate-800 text-slate-300";
   }
 }
+
+const poReportColumns: ReportColumn[] = [
+  { key: "PO", label: "PO Number" },
+  { key: "SKU", label: "SKU" },
+  { key: "Product", label: "Product" },
+  { key: "Supplier", label: "Supplier" },
+  { key: "Quantity", label: "Quantity", numeric: true },
+  { key: "UnitCost", label: "Unit cost", money: true },
+  { key: "TotalCost", label: "Total cost", numeric: true, money: true },
+  { key: "SharePct", label: "% of spend", percent: true },
+  { key: "LeadTime", label: "Lead time (days)", numeric: true },
+  { key: "ExpectedDelivery", label: "Expected delivery" },
+  { key: "Status", label: "Status" },
+  { key: "Created", label: "Created" },
+];
 
 function generatePONumber(orders: PurchaseOrder[]) {
   const year = new Date().getFullYear();
@@ -175,6 +192,41 @@ useEffect(() => {
     purchaseOrders.filter(
       (po) => po.status === "Received"
     ).length;
+
+  /* Report data — tracks the current search / status filter. */
+  const filteredSpendDisplay = filteredOrders.reduce(
+    (sum, po) => sum + po.totalCost,
+    0
+  );
+  const filteredSpend = filteredSpendDisplay || 1;
+
+  const filteredQtyTotal = filteredOrders.reduce(
+    (sum, po) => sum + po.quantity,
+    0
+  );
+
+  const poReportRows = filteredOrders.map((po) => ({
+    PO: po.poNumber,
+    SKU: po.sku,
+    Product: po.product,
+    Supplier: po.supplier,
+    Quantity: po.quantity,
+    UnitCost: po.unitCost,
+    TotalCost: po.totalCost,
+    SharePct: Math.round((po.totalCost / filteredSpend) * 1000) / 10,
+    LeadTime: po.leadTime,
+    ExpectedDelivery: po.expectedDelivery,
+    Status: po.status,
+    Created: po.createdDate,
+  }));
+
+  const poReportSummary = [
+    { label: "PO value", value: `$${totalPOValue.toLocaleString()}` },
+    { label: "Orders", value: String(purchaseOrders.length) },
+    { label: "Pending approval", value: String(pendingApproval) },
+    { label: "In transit", value: String(inTransit) },
+    { label: "Received", value: String(received) },
+  ];
 
   /* UPDATE STATUS */
 
@@ -441,33 +493,21 @@ function doReceivePurchaseOrder(po: PurchaseOrder) {
 
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  exportWorkbook("chainsight-purchase-orders", [
-                    {
-                      name: "Purchase Orders",
-                      rows: purchaseOrders.map((po) => ({
-                        "PO Number": po.poNumber,
-                        SKU: po.sku,
-                        Product: po.product,
-                        Supplier: po.supplier,
-                        Quantity: po.quantity,
-                        "Unit cost": po.unitCost,
-                        "Total cost": po.totalCost,
-                        "Lead time (days)": po.leadTime,
-                        "Expected delivery": po.expectedDelivery,
-                        Status: po.status,
-                        Created: po.createdDate,
-                      })),
-                    },
-                  ]);
-                  toast.success("Purchase orders exported to Excel");
+            <div className="flex flex-wrap gap-3">
+              <ReportBar
+                fileBase="chainsight-purchase-orders"
+                title="Purchase Orders Report"
+                subtitle="Procurement spend, delivery and status"
+                columns={poReportColumns}
+                rows={poReportRows}
+                summary={poReportSummary}
+                pareto={{
+                  title: "Spend by supplier",
+                  labelKey: "Supplier",
+                  valueKey: "TotalCost",
+                  unitPrefix: "$",
                 }}
-                className="rounded-lg border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800"
-              >
-                Export
-              </button>
+              />
 
               <button
                 onClick={() => {
@@ -670,6 +710,10 @@ function doReceivePurchaseOrder(po: PurchaseOrder) {
                   </th>
 
                   <th className="px-6 py-4 text-xs font-semibold uppercase text-slate-500">
+                    % Spend
+                  </th>
+
+                  <th className="px-6 py-4 text-xs font-semibold uppercase text-slate-500">
                     Delivery
                   </th>
 
@@ -731,6 +775,10 @@ function doReceivePurchaseOrder(po: PurchaseOrder) {
                       {po.totalCost.toLocaleString()}
                     </td>
 
+                    <td className="px-6 py-5 text-sm text-slate-400">
+                      {((po.totalCost / filteredSpend) * 100).toFixed(1)}%
+                    </td>
+
                     <td className="px-6 py-5 text-sm text-slate-300">
                       {po.expectedDelivery}
                     </td>
@@ -790,6 +838,27 @@ function doReceivePurchaseOrder(po: PurchaseOrder) {
 
               </tbody>
 
+              {filteredOrders.length > 0 && (
+                <tfoot className="border-t-2 border-slate-700 bg-[#020617] text-sm font-semibold text-white">
+                  <tr>
+                    <td className="px-6 py-4">TOTAL</td>
+                    <td className="px-6 py-4 text-slate-500">
+                      {filteredOrders.length} orders
+                    </td>
+                    <td className="px-6 py-4" />
+                    <td className="px-6 py-4">
+                      {filteredQtyTotal.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      ${filteredSpendDisplay.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4">100%</td>
+                    <td className="px-6 py-4" />
+                    <td className="px-6 py-4" />
+                    <td className="px-6 py-4" />
+                  </tr>
+                </tfoot>
+              )}
             </table>
 
           </div>
@@ -801,6 +870,31 @@ function doReceivePurchaseOrder(po: PurchaseOrder) {
           )}
 
         </div>
+
+        {/* SPEND PARETO */}
+        {filteredOrders.length > 0 && (
+          <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900/70 p-6">
+            <h2 className="text-sm font-semibold">
+              Spend concentration by supplier
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              The suppliers left of the 80% line carry most of the committed
+              spend — that is where negotiation and risk review pay off most
+            </p>
+            <div className="mt-4">
+              <ParetoChart
+                data={Object.entries(
+                  poReportRows.reduce<Record<string, number>>((acc, r) => {
+                    acc[r.Supplier] = (acc[r.Supplier] ?? 0) + r.TotalCost;
+                    return acc;
+                  }, {})
+                ).map(([label, value]) => ({ label, value }))}
+                valueLabel="Committed spend"
+                unitPrefix="$"
+              />
+            </div>
+          </div>
+        )}
 
       </div>
 

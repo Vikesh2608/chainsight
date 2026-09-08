@@ -5,7 +5,8 @@ import { toast } from "sonner";
 
 import { loadData, saveData } from "@/data/storage";
 import { YieldChart, ParetoChart } from "../_components/charts";
-import { exportWorkbook } from "@/lib/exportData";
+import ReportBar from "../_components/ReportBar";
+import type { ReportColumn } from "@/lib/reports";
 import type { InventoryItem } from "@/data/inventory";
 import {
   getProductionOrders,
@@ -66,6 +67,25 @@ function yieldClass(value: number): string {
   if (value >= 90) return "text-amber-400";
   return "text-red-400";
 }
+
+const productionReportColumns: ReportColumn[] = [
+  { key: "Order", label: "Order" },
+  { key: "SKU", label: "SKU" },
+  { key: "Product", label: "Product" },
+  { key: "Planned", label: "Qty planned", numeric: true },
+  { key: "Produced", label: "Qty produced", numeric: true },
+  { key: "Completion", label: "Completion %", percent: true },
+  { key: "WorkCenter", label: "Work center" },
+  { key: "Due", label: "Due" },
+  { key: "Status", label: "Status" },
+  { key: "Inspected", label: "Inspected", numeric: true },
+  { key: "Passed", label: "Passed", numeric: true },
+  { key: "Failed", label: "Failed", numeric: true },
+  { key: "Yield", label: "First-pass yield %", percent: true },
+  { key: "Defect", label: "Defect %", percent: true },
+  { key: "Disposition", label: "Disposition" },
+  { key: "Hold", label: "Quality hold" },
+];
 
 const emptyOrder: ProductionOrder = {
   id: "",
@@ -196,6 +216,34 @@ export default function ProductionPage() {
   const qualityHolds = orders.filter(
     (o) => o.qualityHold || o.status === "On Hold"
   ).length;
+
+  /* Report data — follows the current search / status filter. */
+  const productionReportRows = filtered.map((o) => ({
+    Order: o.id,
+    SKU: o.sku,
+    Product: o.product,
+    Planned: o.quantityPlanned,
+    Produced: o.quantityProduced,
+    Completion: Math.round(completion(o) * 10) / 10,
+    WorkCenter: o.workCenter,
+    Due: o.dueDate,
+    Status: o.status,
+    Inspected: o.inspectedQty,
+    Passed: o.passedQty,
+    Failed: o.failedQty,
+    Yield: Math.round(firstPassYield(o) * 10) / 10,
+    Defect: Math.round(defectRate(o) * 10) / 10,
+    Disposition: o.disposition,
+    Hold: o.qualityHold ? "Yes" : "No",
+  }));
+
+  const productionReportSummary = [
+    { label: "Open orders", value: String(openOrders) },
+    { label: "Units produced", value: unitsProduced.toLocaleString() },
+    { label: "First-pass yield", value: `${aggregateYield.toFixed(1)}%` },
+    { label: "Defect rate", value: `${aggregateDefect.toFixed(1)}%` },
+    { label: "Quality holds", value: String(qualityHolds) },
+  ];
 
   function updateOrder(id: string, patch: Partial<ProductionOrder>) {
     setOrders((current) =>
@@ -333,38 +381,20 @@ export default function ProductionPage() {
               </p>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  exportWorkbook("chainsight-production", [
-                    {
-                      name: "Production Orders",
-                      rows: orders.map((o) => ({
-                        Order: o.id,
-                        SKU: o.sku,
-                        Product: o.product,
-                        "Qty planned": o.quantityPlanned,
-                        "Qty produced": o.quantityProduced,
-                        "Work center": o.workCenter,
-                        Due: o.dueDate,
-                        Status: o.status,
-                        Inspected: o.inspectedQty,
-                        Passed: o.passedQty,
-                        Failed: o.failedQty,
-                        "First-pass yield %": Number(
-                          firstPassYield(o).toFixed(1)
-                        ),
-                        Disposition: o.disposition,
-                        "Quality hold": o.qualityHold ? "Yes" : "No",
-                      })),
-                    },
-                  ]);
-                  toast.success("Production data exported to Excel");
+            <div className="flex flex-wrap gap-3">
+              <ReportBar
+                fileBase="chainsight-production"
+                title="Production & Quality Report"
+                subtitle="Output against plan, first-pass yield and defects"
+                columns={productionReportColumns}
+                rows={productionReportRows}
+                summary={productionReportSummary}
+                pareto={{
+                  title: "Defect Pareto by order",
+                  labelKey: "Order",
+                  valueKey: "Failed",
                 }}
-                className="rounded-lg border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800"
-              >
-                Export
-              </button>
+              />
 
               <button
                 onClick={() => setShowCreate(true)}

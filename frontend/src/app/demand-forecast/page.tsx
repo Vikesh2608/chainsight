@@ -11,6 +11,27 @@ import {
 } from "../../data/purchaseOrders";
 
 import { supplierData } from "../suppliers/page";
+import ReportBar from "../_components/ReportBar";
+import { ParetoChart } from "../_components/charts";
+import type { ReportColumn } from "@/lib/reports";
+
+const demandReportColumns: ReportColumn[] = [
+  { key: "SKU", label: "SKU" },
+  { key: "Product", label: "Product" },
+  { key: "Category", label: "Category" },
+  { key: "Stock", label: "Current stock", numeric: true },
+  { key: "D7", label: "7-day demand", numeric: true },
+  { key: "D30", label: "30-day forecast", numeric: true },
+  { key: "D60", label: "60-day demand", numeric: true },
+  { key: "D90", label: "90-day demand", numeric: true },
+  { key: "DailyDemand", label: "Daily demand" },
+  { key: "LeadTimeDemand", label: "Lead-time demand", numeric: true },
+  { key: "ProjectedStock", label: "Projected 30-day stock", numeric: true },
+  { key: "RecommendedOrder", label: "Recommended order", numeric: true },
+  { key: "Accuracy", label: "Forecast accuracy %", percent: true },
+  { key: "Trend", label: "Trend" },
+  { key: "Risk", label: "Stockout risk" },
+];
 
 type DemandItem = {
   sku: string;
@@ -451,6 +472,32 @@ export default function DemandForecastPage() {
     (item) => calculateForecastTrend(item) === "Increasing"
   ).length;
 
+  /* Report data — follows the current search / risk filter. */
+  const demandReportRows = filteredData.map((item) => ({
+    SKU: item.sku,
+    Product: item.product,
+    Category: item.category,
+    Stock: item.currentStock,
+    D7: item.demand7,
+    D30: item.demand30,
+    D60: item.demand60,
+    D90: item.demand90,
+    DailyDemand: Math.round(calculateDailyDemand(item) * 100) / 100,
+    LeadTimeDemand: calculateLeadTimeDemand(item),
+    ProjectedStock: calculateProjectedStock(item),
+    RecommendedOrder: calculateRecommendedOrder(item),
+    Accuracy: Math.round(calculateForecastAccuracy(item) * 10) / 10,
+    Trend: calculateForecastTrend(item),
+    Risk: calculateStockoutRisk(item),
+  }));
+
+  const demandReportSummary = [
+    { label: "30-day forecast", value: `${totalForecast30} units` },
+    { label: "High stockout risk", value: String(highRisk) },
+    { label: "Medium risk", value: String(mediumRisk) },
+    { label: "Increasing demand", value: String(increasingDemand) },
+  ];
+
   return (
     <main className="min-h-screen bg-[#020617] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
@@ -473,8 +520,24 @@ export default function DemandForecastPage() {
               </p>
             </div>
 
-            <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-300">
-              Forecast Engine Active
+            <div className="flex flex-wrap items-center gap-3">
+              <ReportBar
+                fileBase="chainsight-demand-forecast"
+                title="Demand Forecast Report"
+                subtitle="Projected demand, lead-time cover and reorder signal"
+                columns={demandReportColumns}
+                rows={demandReportRows}
+                summary={demandReportSummary}
+                pareto={{
+                  title: "30-day demand by SKU",
+                  labelKey: "SKU",
+                  valueKey: "D30",
+                }}
+              />
+
+              <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-300">
+                Forecast Engine Active
+              </div>
             </div>
           </div>
         </div>
@@ -670,6 +733,28 @@ export default function DemandForecastPage() {
           </div>
 
         </section>
+
+        {/* DEMAND PARETO */}
+        {filteredData.length > 0 && (
+          <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+            <h2 className="text-sm font-semibold">
+              Demand concentration — 30-day forecast by SKU
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              A few SKUs drive most of the projected demand; the line crosses
+              80% where planning effort matters most
+            </p>
+            <div className="mt-4">
+              <ParetoChart
+                data={demandReportRows.map((r) => ({
+                  label: r.SKU,
+                  value: r.D30,
+                }))}
+                valueLabel="30-day demand"
+              />
+            </div>
+          </section>
+        )}
 
         {/* INTELLIGENCE SECTION */}
         <section className="mt-6 grid gap-6 md:grid-cols-2">

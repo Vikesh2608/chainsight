@@ -48,7 +48,7 @@ export default function DashboardPage() {
             <NavItem label="Demand Forecast" href="/demand-forecast" />
             <NavItem label="Risk & Alerts" href="/demand-forecast" />
             <NavItem label="AI Recommendations" href="/demand-forecast" />
-            <NavItem label="Analytics" href="/dashboard" />
+            <NavItem label="Analytics" href="/analytics" />
           </nav>
 
           <div className="mt-10 border-t border-slate-800 px-6 pt-6">

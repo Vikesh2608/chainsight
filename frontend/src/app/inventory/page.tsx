@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { loadData, saveData } from "../../data/storage";
-import { StockVsForecastChart } from "../_components/charts";
-import { exportWorkbook } from "@/lib/exportData";
+import { StockVsForecastChart, ParetoChart } from "../_components/charts";
+import ReportBar from "../_components/ReportBar";
+import type { ReportColumn } from "@/lib/reports";
 import {
   createPurchaseOrder as createPurchaseOrderRecord,
 } from "../../data/purchaseOrders";
@@ -250,6 +251,28 @@ function getRecommendedQuantity(item: InventoryItem) {
   );
 }
 
+/* Stock as a multiple of 30-day demand: >1 means more than a month of cover. */
+function coverMultiple(item: InventoryItem) {
+  if (item.forecast30 <= 0) return 0;
+  return Math.round((item.stock / item.forecast30) * 100) / 100;
+}
+
+const inventoryReportColumns: ReportColumn[] = [
+  { key: "SKU", label: "SKU" },
+  { key: "Product", label: "Product" },
+  { key: "Category", label: "Category" },
+  { key: "Stock", label: "On hand", numeric: true },
+  { key: "Forecast", label: "30-day forecast", numeric: true },
+  { key: "Reorder", label: "Reorder point", numeric: true },
+  { key: "Cover", label: "Cover x" },
+  { key: "LeadTime", label: "Lead time (days)", numeric: true },
+  { key: "UnitCost", label: "Unit cost", money: true },
+  { key: "Value", label: "Inventory value", numeric: true, money: true },
+  { key: "SuggestedQty", label: "Suggested order qty", numeric: true },
+  { key: "Supplier", label: "Supplier" },
+  { key: "Risk", label: "Risk" },
+];
+
 export default function InventoryPage() {
   const [search, setSearch] = useState("");
 const [riskFilter, setRiskFilter] = useState("All");
@@ -391,6 +414,38 @@ const [showPurchaseOrders, setShowPurchaseOrders] =
     (item) => getRisk(item) === "Medium"
   ).length;
 
+  // Rows for export / print / email + the on-page Pareto — follows the
+  // current search and risk filter so the report matches what is on screen.
+  const reportRows = useMemo(
+    () =>
+      filteredInventory.map((item) => ({
+        SKU: item.sku,
+        Product: item.name,
+        Category: item.category,
+        Stock: item.stock,
+        Forecast: item.forecast30,
+        Reorder: item.reorderPoint,
+        Cover: coverMultiple(item),
+        LeadTime: item.leadTime,
+        UnitCost: item.unitCost,
+        Value: item.stock * item.unitCost,
+        SuggestedQty: Math.max(0, getRecommendedQuantity(item)),
+        Supplier: item.supplier,
+        Risk: getRisk(item),
+      })),
+    [filteredInventory]
+  );
+
+  const reportSummary = [
+    { label: "Inventory value", value: `$${inventoryValue.toLocaleString()}` },
+    { label: "Total units", value: totalUnits.toLocaleString() },
+    { label: "High risk SKUs", value: String(highRisk) },
+    { label: "Medium risk", value: String(mediumRisk) },
+  ];
+
+  const visibleValueTotal = reportRows.reduce((sum, r) => sum + r.Value, 0);
+  const visibleStockTotal = reportRows.reduce((sum, r) => sum + r.Stock, 0);
+
   const createPurchaseOrder = (
   item: InventoryItem,
   supplier?: SupplierOption
@@ -513,32 +568,21 @@ return (
               </p>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                className="rounded-lg border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800"
-                onClick={() => {
-                  exportWorkbook("chainsight-inventory", [
-                    {
-                      name: "Inventory",
-                      rows: inventory.map((item) => ({
-                        SKU: item.sku,
-                        Product: item.name,
-                        Category: item.category,
-                        "On hand": item.stock,
-                        "30-day forecast": item.forecast30,
-                        "Reorder point": item.reorderPoint,
-                        "Lead time (days)": item.leadTime,
-                        "Unit cost": item.unitCost,
-                        Supplier: item.supplier,
-                        Risk: getRisk(item),
-                      })),
-                    },
-                  ]);
-                  toast.success("Inventory exported to Excel");
+            <div className="flex flex-wrap gap-3">
+              <ReportBar
+                fileBase="chainsight-inventory"
+                title="Inventory Report"
+                subtitle="Stock position, cover and value by SKU"
+                columns={inventoryReportColumns}
+                rows={reportRows}
+                summary={reportSummary}
+                pareto={{
+                  title: "Inventory value by SKU",
+                  labelKey: "SKU",
+                  valueKey: "Value",
+                  unitPrefix: "$",
                 }}
-              >
-                Export
-              </button>
+              />
 
               <button
                 className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500"
@@ -633,6 +677,21 @@ return (
           </div>
         </div>
 
+        {/* INVENTORY VALUE PARETO */}
+        <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900/70 p-5">
+          <h2 className="text-sm font-semibold">Where the money sits — inventory value by SKU</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            The leftmost SKUs hold most of the tied-up capital; the line crosses 80% where the &ldquo;vital few&rdquo; end
+          </p>
+          <div className="mt-4">
+            <ParetoChart
+              data={reportRows.map((r) => ({ label: r.SKU, value: r.Value }))}
+              valueLabel="Inventory value"
+              unitPrefix="$"
+            />
+          </div>
+        </div>
+
         {/* FILTERS */}
         <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900/70 p-4">
 
@@ -709,6 +768,14 @@ return (
                   </th>
 
                   <th className="px-6 py-4">
+                    Cover &times;
+                  </th>
+
+                  <th className="px-6 py-4">
+                    Value
+                  </th>
+
+                  <th className="px-6 py-4">
                     Risk
                   </th>
 
@@ -762,6 +829,26 @@ return (
         {/* LEAD TIME */}
         <td className="px-6 py-5">
           {item.leadTime} days
+        </td>
+
+        {/* COVER MULTIPLE */}
+        <td className="px-6 py-5">
+          <span
+            className={
+              coverMultiple(item) < 1
+                ? "font-semibold text-red-400"
+                : coverMultiple(item) < 1.5
+                ? "text-yellow-400"
+                : "text-slate-300"
+            }
+          >
+            {coverMultiple(item).toFixed(2)}&times;
+          </span>
+        </td>
+
+        {/* INVENTORY VALUE */}
+        <td className="px-6 py-5 text-slate-300">
+          ${(item.stock * item.unitCost).toLocaleString()}
         </td>
 
         {/* RISK */}
@@ -822,6 +909,27 @@ return (
     );
   })}
 </tbody>
+
+              {filteredInventory.length > 0 && (
+                <tfoot className="border-t-2 border-slate-700 bg-slate-950 text-sm font-semibold text-white">
+                  <tr>
+                    <td className="px-6 py-4">TOTAL</td>
+                    <td className="px-6 py-4 text-slate-500">
+                      {filteredInventory.length} SKUs
+                    </td>
+                    <td className="px-6 py-4">{visibleStockTotal.toLocaleString()}</td>
+                    <td className="px-6 py-4" />
+                    <td className="px-6 py-4" />
+                    <td className="px-6 py-4" />
+                    <td className="px-6 py-4" />
+                    <td className="px-6 py-4">
+                      ${visibleValueTotal.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4" />
+                    <td className="px-6 py-4" />
+                  </tr>
+                </tfoot>
+              )}
             </table>
 
           </div>

@@ -60,6 +60,26 @@ flowchart LR
 | `/suppliers` | On-time delivery, quality score, defect rate, lead time |
 | `/purchase-orders` | Procurement lifecycle, draft → received (receiving updates inventory) |
 | `/production` | **Production & Quality** — manufacturing orders, first-pass yield, defect rate, quality holds (completed orders flow good units into inventory) |
+| `/analytics` | **Pivot** — group any dataset by up to two row dimensions and a column dimension, aggregate a measure (sum / avg / count / min / max), with row/column totals, a bar chart and a Pareto |
+
+## Reporting
+
+Every data module (`/inventory`, `/purchase-orders`, `/production`,
+`/suppliers`, `/demand-forecast`, `/analytics`) carries a **Report bar**:
+
+- **Export** — multi-sheet Excel (`.xlsx`) or `.csv`. The workbook adds a
+  _Summary_ tab with the module KPIs and a _Pareto_ tab (contribution, share,
+  cumulative share) alongside the raw rows.
+- **Print** — a clean, branded print-preview sheet with a totals row and the
+  Pareto breakdown; `@media print` drops the app chrome.
+- **Email** — sends the report as a CSV attachment. With `RESEND_API_KEY` set
+  the server route (`/api/report/email`) delivers it directly (from
+  `REPORT_FROM_EMAIL`, default `onboarding@resend.dev`); without a key it hands
+  off to the user's mail client with the summary pre-filled.
+
+Tables also show the derived columns the analysis already computes — inventory
+value and cover multiple, PO share of spend, first-pass yield and defect rate,
+lead-time demand — with a **TOTAL** row, and an on-page Pareto chart.
 
 ## Engineering notes
 

@@ -6,6 +6,7 @@ import {
   Cell,
   CartesianGrid,
   ComposedChart,
+  Legend,
   Line,
   ReferenceLine,
   ResponsiveContainer,
@@ -16,6 +17,9 @@ import {
 
 const AXIS = { fill: "#64748b", fontSize: 11 };
 const GRID = "#1e293b";
+const LEGEND = {
+  wrapperStyle: { fontSize: 11, color: "#94a3b8", paddingTop: 8 },
+};
 
 const tooltipProps = {
   contentStyle: {
@@ -121,15 +125,16 @@ export function StockVsForecastChart({
           <XAxis dataKey="sku" tick={AXIS} stroke={GRID} interval={0} />
           <YAxis tick={AXIS} stroke={GRID} />
           <Tooltip {...tooltipProps} />
+          <Legend {...LEGEND} />
           <Bar
             dataKey="stock"
-            name="On hand"
+            name="On hand (units in stock)"
             fill="#22d3ee"
             radius={[3, 3, 0, 0]}
           />
           <Bar
             dataKey="forecast"
-            name="30-day demand"
+            name="30-day demand (forecast)"
             fill="#475569"
             radius={[3, 3, 0, 0]}
           />
@@ -254,11 +259,12 @@ export function ParetoChart({
           <Tooltip
             {...tooltipProps}
             formatter={(value, name) =>
-              name === "cumulative"
-                ? [`${Number(value)}%`, "Cumulative"]
+              String(name).startsWith("Cumulative")
+                ? [`${Number(value)}%`, "Cumulative share"]
                 : [`${unitPrefix}${Number(value).toLocaleString()}`, valueLabel]
             }
           />
+          <Legend {...LEGEND} />
           <ReferenceLine
             yAxisId="right"
             y={80}
@@ -274,6 +280,7 @@ export function ParetoChart({
           <Bar
             yAxisId="left"
             dataKey="value"
+            name={`${valueLabel} (bar, left axis)`}
             fill="#22d3ee"
             radius={[3, 3, 0, 0]}
           />
@@ -281,11 +288,47 @@ export function ParetoChart({
             yAxisId="right"
             type="monotone"
             dataKey="cumulative"
+            name="Cumulative share (line, right axis)"
             stroke="#f59e0b"
             strokeWidth={2}
             dot={{ r: 3, fill: "#f59e0b" }}
           />
         </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/*
+ * Plain bar chart of labelled totals — used by the Analytics pivot.
+ */
+export function TotalsBarChart({
+  data,
+  unitPrefix = "",
+}: {
+  data: { label: string; value: number }[];
+  unitPrefix?: string;
+}) {
+  if (data.length === 0) return null;
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer>
+        <BarChart
+          data={data.slice(0, 20)}
+          margin={{ top: 8, right: 8, bottom: 4, left: 0 }}
+        >
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey="label" tick={AXIS} stroke={GRID} interval={0} />
+          <YAxis tick={AXIS} stroke={GRID} />
+          <Tooltip
+            {...tooltipProps}
+            formatter={(value) =>
+              `${unitPrefix}${Number(value).toLocaleString()}`
+            }
+          />
+          <Bar dataKey="value" fill="#22d3ee" radius={[3, 3, 0, 0]} />
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
