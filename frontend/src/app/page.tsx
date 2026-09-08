@@ -221,24 +221,6 @@ export default function Home() {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <a
-              href="https://github.com/Vikesh2608/chainsight"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
-            >
-              View source on GitHub
-            </a>
-
-            <a
-              href="https://github.com/Vikesh2608"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
-            >
-              GitHub profile
-            </a>
-
-            <a
               href="https://www.linkedin.com/in/vikesh-bairam-219769258/"
               target="_blank"
               rel="noreferrer"
