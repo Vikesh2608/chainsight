@@ -222,9 +222,10 @@ export function ParetoChart({
 
   const total = sorted.reduce((s, d) => s + d.value, 0);
 
-  let running = 0;
-  const rows = sorted.map((d) => {
-    running += d.value;
+  const rows = sorted.map((d, idx) => {
+    const running = sorted
+      .slice(0, idx + 1)
+      .reduce((s, x) => s + x.value, 0);
     return {
       label: d.label,
       value: d.value,
