@@ -7,6 +7,7 @@ import {
   loadData,
   saveData,
 } from "@/data/storage";
+import { exportWorkbook } from "@/lib/exportData";
 
 import type {
   PurchaseOrder,
@@ -440,22 +441,48 @@ function doReceivePurchaseOrder(po: PurchaseOrder) {
 
             </div>
 
-            <button
-              onClick={() => {
-                setNewPO({
-                  ...emptyPO,
-                  poNumber:
-                    generatePONumber(
-                      purchaseOrders
-                    ),
-                });
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  exportWorkbook("chainsight-purchase-orders", [
+                    {
+                      name: "Purchase Orders",
+                      rows: purchaseOrders.map((po) => ({
+                        "PO Number": po.poNumber,
+                        SKU: po.sku,
+                        Product: po.product,
+                        Supplier: po.supplier,
+                        Quantity: po.quantity,
+                        "Unit cost": po.unitCost,
+                        "Total cost": po.totalCost,
+                        "Lead time (days)": po.leadTime,
+                        "Expected delivery": po.expectedDelivery,
+                        Status: po.status,
+                        Created: po.createdDate,
+                      })),
+                    },
+                  ]);
+                  toast.success("Purchase orders exported to Excel");
+                }}
+                className="rounded-lg border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+              >
+                Export
+              </button>
 
-                setShowCreatePO(true);
-              }}
-              className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500"
-            >
-              + Create Purchase Order
-            </button>
+              <button
+                onClick={() => {
+                  setNewPO({
+                    ...emptyPO,
+                    poNumber: generatePONumber(purchaseOrders),
+                  });
+
+                  setShowCreatePO(true);
+                }}
+                className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500"
+              >
+                + Create Purchase Order
+              </button>
+            </div>
 
           </div>
 

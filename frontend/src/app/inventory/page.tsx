@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { loadData, saveData } from "../../data/storage";
 import { StockVsForecastChart } from "../_components/charts";
+import { exportWorkbook } from "@/lib/exportData";
 import {
   createPurchaseOrder as createPurchaseOrderRecord,
 } from "../../data/purchaseOrders";
@@ -512,12 +513,40 @@ return (
               </p>
             </div>
 
-            <button
-              className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500"
-              onClick={() => setShowAddInventory(true)}
-            >
-              + Add Inventory
-            </button>
+            <div className="flex gap-3">
+              <button
+                className="rounded-lg border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+                onClick={() => {
+                  exportWorkbook("chainsight-inventory", [
+                    {
+                      name: "Inventory",
+                      rows: inventory.map((item) => ({
+                        SKU: item.sku,
+                        Product: item.name,
+                        Category: item.category,
+                        "On hand": item.stock,
+                        "30-day forecast": item.forecast30,
+                        "Reorder point": item.reorderPoint,
+                        "Lead time (days)": item.leadTime,
+                        "Unit cost": item.unitCost,
+                        Supplier: item.supplier,
+                        Risk: getRisk(item),
+                      })),
+                    },
+                  ]);
+                  toast.success("Inventory exported to Excel");
+                }}
+              >
+                Export
+              </button>
+
+              <button
+                className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500"
+                onClick={() => setShowAddInventory(true)}
+              >
+                + Add Inventory
+              </button>
+            </div>
           </div>
         </div>
 

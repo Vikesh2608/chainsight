@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadInventory } from "@/data/inventory";
 import { buildBriefing, type Briefing, type Severity } from "@/lib/insights";
 import { createPurchaseOrder } from "@/data/purchaseOrders";
-import { StockRunwayChart } from "./charts";
+import { exportWorkbook } from "@/lib/exportData";
+import { StockRunwayChart, ParetoChart } from "./charts";
 
 type BriefingSource = "claude" | "engine";
 
@@ -198,6 +199,37 @@ export default function AiBriefing() {
     [briefing]
   );
 
+  const exportBriefing = useCallback(() => {
+    if (!briefing) return;
+
+    exportWorkbook("chainsight-briefing", [
+      {
+        name: "Summary",
+        rows: [
+          { Field: "Generated", Value: briefing.generatedAt },
+          { Field: "Summary", Value: briefing.summary },
+          ...briefing.kpis.map((k) => ({ Field: k.label, Value: k.value })),
+        ],
+      },
+      {
+        name: "Ranked risks",
+        rows: briefing.insights.map((i) => ({
+          SKU: i.sku,
+          Product: i.name,
+          Severity: i.severity,
+          "On hand": i.stock,
+          "30-day forecast": i.forecast30,
+          "Days of cover": i.daysOfCover,
+          "Days to stockout": i.daysToStockout,
+          "Value at risk": Math.round(i.valueAtRisk),
+          "Recommended order qty": i.recommendedOrderQty,
+          Supplier: i.supplier,
+          Recommendation: i.recommendation,
+        })),
+      },
+    ]);
+  }, [briefing]);
+
   const now = useMemo(() => new Date(), []);
 
   const criticalCount = briefing
@@ -245,6 +277,15 @@ export default function AiBriefing() {
 
           {briefing && !analyzing && (
             <span>Updated {formatTime(briefing.generatedAt)}</span>
+          )}
+
+          {briefing && briefing.insights.length > 0 && (
+            <button
+              onClick={() => exportBriefing()}
+              className="rounded-md border border-slate-700 px-3 py-1.5 font-medium text-slate-300 transition hover:bg-slate-800"
+            >
+              Export report
+            </button>
           )}
 
           <button
@@ -316,6 +357,29 @@ export default function AiBriefing() {
           </div>
         </div>
       )}
+
+      {/* VALUE-AT-RISK PARETO */}
+      {briefing &&
+        briefing.insights.filter((i) => i.valueAtRisk > 0).length >= 2 && (
+          <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Where the exposure sits — demand value at risk by SKU
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Clearing the leftmost SKUs removes most of the total exposure
+            </p>
+            <div className="mt-3">
+              <ParetoChart
+                data={briefing.insights.map((i) => ({
+                  label: i.sku,
+                  value: Math.round(i.valueAtRisk),
+                }))}
+                valueLabel="Value at risk"
+                unitPrefix="$"
+              />
+            </div>
+          </div>
+        )}
 
       {/* INSIGHTS */}
       {briefing && !briefing.healthy && (

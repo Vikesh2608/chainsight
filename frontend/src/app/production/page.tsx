@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { loadData, saveData } from "@/data/storage";
-import { YieldChart } from "../_components/charts";
+import { YieldChart, ParetoChart } from "../_components/charts";
+import { exportWorkbook } from "@/lib/exportData";
 import type { InventoryItem } from "@/data/inventory";
 import {
   getProductionOrders,
@@ -332,12 +333,46 @@ export default function ProductionPage() {
               </p>
             </div>
 
-            <button
-              onClick={() => setShowCreate(true)}
-              className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500"
-            >
-              + New Production Order
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  exportWorkbook("chainsight-production", [
+                    {
+                      name: "Production Orders",
+                      rows: orders.map((o) => ({
+                        Order: o.id,
+                        SKU: o.sku,
+                        Product: o.product,
+                        "Qty planned": o.quantityPlanned,
+                        "Qty produced": o.quantityProduced,
+                        "Work center": o.workCenter,
+                        Due: o.dueDate,
+                        Status: o.status,
+                        Inspected: o.inspectedQty,
+                        Passed: o.passedQty,
+                        Failed: o.failedQty,
+                        "First-pass yield %": Number(
+                          firstPassYield(o).toFixed(1)
+                        ),
+                        Disposition: o.disposition,
+                        "Quality hold": o.qualityHold ? "Yes" : "No",
+                      })),
+                    },
+                  ]);
+                  toast.success("Production data exported to Excel");
+                }}
+                className="rounded-lg border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+              >
+                Export
+              </button>
+
+              <button
+                onClick={() => setShowCreate(true)}
+                className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500"
+              >
+                + New Production Order
+              </button>
+            </div>
           </div>
         </div>
 
@@ -553,21 +588,40 @@ export default function ProductionPage() {
           )}
         </div>
 
-        {/* YIELD CHART */}
+        {/* CHARTS */}
         {orders.some((o) => o.inspectedQty > 0) && (
-          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-            <h2 className="text-sm font-semibold">
-              First-pass yield by order
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Orders below the 95% target line need process attention
-            </p>
-            <div className="mt-4">
-              <YieldChart
-                data={orders
-                  .filter((o) => o.inspectedQty > 0)
-                  .map((o) => ({ id: o.id, yield: firstPassYield(o) }))}
-              />
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+              <h2 className="text-sm font-semibold">
+                First-pass yield by order
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Orders below the 95% target line need process attention
+              </p>
+              <div className="mt-4">
+                <YieldChart
+                  data={orders
+                    .filter((o) => o.inspectedQty > 0)
+                    .map((o) => ({ id: o.id, yield: firstPassYield(o) }))}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+              <h2 className="text-sm font-semibold">
+                Defect Pareto — where the failures concentrate
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Fixing the leftmost orders removes most of the total defects
+              </p>
+              <div className="mt-4">
+                <ParetoChart
+                  data={orders
+                    .filter((o) => o.failedQty > 0)
+                    .map((o) => ({ label: o.id, value: o.failedQty }))}
+                  valueLabel="Units failed"
+                />
+              </div>
             </div>
           </div>
         )}

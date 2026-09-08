@@ -5,6 +5,8 @@ import {
   BarChart,
   Cell,
   CartesianGrid,
+  ComposedChart,
+  Line,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -194,6 +196,95 @@ export function YieldChart({
             ))}
           </Bar>
         </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/*
+ * Pareto: contributions sorted high-to-low, with a cumulative-%
+ * line and an 80% reference. Shows how concentrated a total is.
+ */
+export function ParetoChart({
+  data,
+  valueLabel = "Value",
+  unitPrefix = "",
+}: {
+  data: { label: string; value: number }[];
+  valueLabel?: string;
+  unitPrefix?: string;
+}) {
+  const sorted = [...data]
+    .filter((d) => d.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  if (sorted.length === 0) return null;
+
+  const total = sorted.reduce((s, d) => s + d.value, 0);
+
+  let running = 0;
+  const rows = sorted.map((d) => {
+    running += d.value;
+    return {
+      label: d.label,
+      value: d.value,
+      cumulative: Math.round((running / total) * 100),
+    };
+  });
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer>
+        <ComposedChart
+          data={rows}
+          margin={{ top: 8, right: 8, bottom: 4, left: 0 }}
+        >
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey="label" tick={AXIS} stroke={GRID} interval={0} />
+          <YAxis yAxisId="left" tick={AXIS} stroke={GRID} />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            domain={[0, 100]}
+            unit="%"
+            tick={AXIS}
+            stroke={GRID}
+          />
+          <Tooltip
+            {...tooltipProps}
+            formatter={(value, name) =>
+              name === "cumulative"
+                ? [`${Number(value)}%`, "Cumulative"]
+                : [`${unitPrefix}${Number(value).toLocaleString()}`, valueLabel]
+            }
+          />
+          <ReferenceLine
+            yAxisId="right"
+            y={80}
+            stroke="#38bdf8"
+            strokeDasharray="4 4"
+            label={{
+              value: "80%",
+              fill: "#38bdf8",
+              fontSize: 10,
+              position: "right",
+            }}
+          />
+          <Bar
+            yAxisId="left"
+            dataKey="value"
+            fill="#22d3ee"
+            radius={[3, 3, 0, 0]}
+          />
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="cumulative"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            dot={{ r: 3, fill: "#f59e0b" }}
+          />
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
